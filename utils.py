@@ -34,18 +34,4 @@ def gradient_loss_w(x, c, w, b):
     diff = proba.T - c.T
     gw = x * diff
     gb = sum(diff)
-
     return np.concatenate((gb.flatten('F'), gw.flatten('F')))
-
-
-def gradient_test(f, g, dim, iterations=20, epsilon=1):
-    x = np.random.randn(dim, 1)
-    d = np.random.randn(dim, 1)
-    delta = []
-    for i in range(iterations):
-        epsilon *= 0.5
-        res = f(x + epsilon * d) - f(x)
-        df = np.abs(res)
-        dg = np.abs(res - epsilon * np.matmul(d.T, g(x)))
-        delta.append((df, dg))
-    return delta
