@@ -34,3 +34,23 @@ def gradient_loss_w(x, c, w, b):
     gw = x * diff
     gb = np.sum(diff, axis=0)
     return np.concatenate((gb.flatten('F'), gw.flatten('F')))
+
+def stochastic_gradient_descent(x, c, w, batch_size, learning_rate, yv, cv, iterations, freq):
+    sample_count = x.shape[0]
+    sample_size = x.shape[1]
+    weight_size = w.shape[1]
+    labels_count = c.shape[0]
+    batch_count = sample_count / batch_size
+
+    records = np.zeros(np.ceil(iterations / freq), 2)
+
+    w_k = w
+    for i in range(iterations):
+        idxs = np.random.permutation(sample_count)
+        for j in range(batch_count):
+            idx_k = idxs[(j-1) * batch_size + 1 : j * batch_size]
+            x_k = x[:, idx_k]
+            c_k = x[:, idx_k]
+            b_k = w_k[1 : labels_count]
+            w_k = np.reshape(w_k[labels_count+1 : weight_size], [sample_size, labels_count])
+            g_k = gradient_loss_w(x_k, c_k, w_k, b_k)

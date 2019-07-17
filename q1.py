@@ -48,15 +48,6 @@ if __name__ == "__main__":
                    - e * np.matmul(dx.T, gradient_loss_x(x, c, w, b))[0][0])
             for e in epsilons]
 
-    plt.loglog(epsilons, df_w)
-    plt.loglog(epsilons, dg_w)
-    plt.title = 'Gradient test - w, b'
-    plt.xlabel = 'Iterations'
-    plt.ylabel = 'Value'
-    plt.legend([r'$\left|f\left(x + \epsilon d\right) - f\left(x\right)\right|$',
-                r'$\left|f\left(x + \epsilon d\right) - f\left(x\right) - \epsilon d^T g\left(x\right)\right|$'])
-    plt.show()
-
     plt.loglog(epsilons, df_x)
     plt.loglog(epsilons, dg_x)
     plt.title = 'Gradient test - x'
@@ -64,4 +55,15 @@ if __name__ == "__main__":
     plt.ylabel = 'Value'
     plt.legend([r'$\left|f\left(x + \epsilon d\right) - f\left(x\right)\right|$',
                 r'$\left|f\left(x + \epsilon d\right) - f\left(x\right) - \epsilon d^T g\left(x\right)\right|$'])
+    plt.savefig('submission/q1x.png')
+    plt.show()
+
+    plt.loglog(epsilons, df_w)
+    plt.loglog(epsilons, dg_w)
+    plt.title = 'Gradient test - w, b'
+    plt.xlabel = 'Iterations'
+    plt.ylabel = 'Value'
+    plt.legend([r'$\left|f\left(x + \epsilon d\right) - f\left(x\right)\right|$',
+                r'$\left|f\left(x + \epsilon d\right) - f\left(x\right) - \epsilon d^T g\left(x\right)\right|$'])
+    plt.savefig('submission/q1wb.png')
     plt.show()
