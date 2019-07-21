@@ -6,9 +6,9 @@ import numpy.linalg as la
 def plot_test_results(epsilons, df, dg, func, title, filename, show):
     plt.loglog(epsilons, df)
     plt.loglog(epsilons, dg)
-    plt.title = title
-    plt.xlabel = 'Epsilon'
-    plt.ylabel = 'Value'
+    plt.title(title)
+    plt.xlabel('Epsilon')
+    plt.ylabel('Value')
     plt.legend([r'$\left|f\left(x + \epsilon d\right) - f\left(x\right)\right|$',
                 r'$\left|f\left(x + \epsilon d\right) - f\left(x\right) - ' + func + r'\right|$'])
     plt.savefig(f'results/{filename}.png')
@@ -17,27 +17,19 @@ def plot_test_results(epsilons, df, dg, func, title, filename, show):
 
 
 def plot_sgd_results(iterations, train_loss, train_accuracy, test_loss, test_accuracy, title, filename, show):
-    fig, ax1 = plt.subplots()
-    fig.title = title
+    fig, axs = plt.subplots(2)
+    fig.suptitle(title)
 
-    color = 'tab:red'
-    ax1.set_xlabel('Iterations')
-    ax1.set_ylabel('Loss', color=color)
-    ax1.plot(iterations, train_loss, color=color, linestyle='-')
-    ax1.plot(iterations, test_loss, color=color, linestyle='--')
-    ax1.tick_params(axis='y', labelcolor=color)
-    ax1.legend(['Train', 'Test'])
+    axs[0].set(ylabel='Loss')
+    axs[0].plot(iterations, train_loss)
+    axs[0].plot(iterations, test_loss)
+    axs[0].legend(['Train', 'Test'])
 
-    ax2 = ax1.twinx()
+    axs[1].set(xlabel='Iterations', ylabel='Accuracy')
+    axs[1].plot(iterations, train_accuracy)
+    axs[1].plot(iterations, test_accuracy)
+    axs[1].legend(['Train', 'Test'])
 
-    color = 'tab:blue'
-    ax2.set_ylabel('Accuracy', color=color)
-    ax2.plot(iterations, train_accuracy, color=color, linestyle='-')
-    ax2.plot(iterations, test_accuracy, color=color, linestyle='--')
-    ax2.tick_params(axis='y', labelcolor=color)
-    ax2.legend(['Train', 'Test'])
-
-    fig.tight_layout()
     plt.savefig(f'results/{filename}.png')
     if show:
         plt.show()

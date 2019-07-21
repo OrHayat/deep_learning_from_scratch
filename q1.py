@@ -23,7 +23,7 @@ if __name__ == "__main__":
 
     gradient_test(lambda e: loss(x + dx * e, c, w, b),
                   lambda e: e * np.matmul(dx.T, gradient_loss_x(x, c, w, b)).item(),
-                  'x', 'q1_x')
+                  'Softmax gradient test w.r.t to x', 'q1_x')
     gradient_test(lambda e: loss(x, c, w + dw * e, b + db * e),
                   lambda e: e * np.matmul(dtheta.T, gradient_loss_theta(x, c, w, b)).item(),
-                  'theta', 'q1_theta')
+                  'Softmax gradient test w.r.t to theta', 'q1_theta')

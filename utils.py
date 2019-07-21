@@ -1,5 +1,29 @@
 import numpy as np
-import numpy.matlib as npm
+import numpy.linalg as la
+import scipy.io as sio
+
+
+def vec2mat(y, labels_count):
+    sample_count = y.shape[1]
+    m = np.zeros((labels_count, sample_count))
+    for i in range(sample_count):
+        m[y[0, i], i] = 1
+    return m
+
+
+def load_mnist():
+    mnist = sio.loadmat('resources/MNISTData.mat')
+    trainX = mnist['trainX']
+    trainY = mnist['trainY']
+    testX = mnist['testX']
+    testY = mnist['testY']
+
+    labels_count = 10
+    trainX = trainX.T / 255
+    trainY = vec2mat(trainY, labels_count)
+    testX = testX.T / 255
+    testY = vec2mat(testY, labels_count)
+    return trainX, trainY, testX, testY
 
 
 def sigmoid(x):
@@ -18,9 +42,9 @@ def softmax(x, w, b):
     return numerator * denominator ** (-1)
 
 
-def loss(x, c, w, b, epsilon=1e-8):
+def loss(x, c, w, b, epsilon=1e-8, regularization=0):
     probabilities = softmax(x, w, b)
-    return -np.sum(c * np.log(probabilities + epsilon))
+    return -np.sum(c * np.log(probabilities + epsilon)) + regularization * la.norm(w)
 
 
 def gradient_loss_x(x, c, w, b):
@@ -36,46 +60,58 @@ def gradient_loss_theta(x, c, w, b):
     return np.concatenate((gb.flatten('F'), gw.flatten('F'))) \
         .reshape(gb.shape[0] * gb.shape[1] + gw.shape[0] * gw.shape[1], 1)
 
+class linear_model:
+    def __init__(self, theta, batch_size, learning_rate, iterations, freq):
+        self.theta = theta
+        self.theta_k = self.theta
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
+        self.iterations = iterations
+        self.freq = freq
+        self.training_records = []
 
-def stochastic_gradient_descent(x, c, theta, batch_size, learning_rate, iterations, testX, testY, freq):
-    sample_size, sample_count = x.shape
-    theta_size = theta.shape[0]
-    labels_count = c.shape[0]
-    batch_count = int(sample_count / batch_size)
-    records = []
-    theta_k = theta
-    for i in range(iterations):
-        idxs = np.random.permutation(sample_count)
-        for j in range(0, batch_count):
-            idx_k = idxs[j * batch_size: (j + 1) * batch_size]
-            x_k = x[:, idx_k]
-            c_k = c[:, idx_k]
+    def train(self, x, c, test_x, test_y):
+        sample_size, sample_count = x.shape
+        theta_size = self.theta.shape[0]
+        labels_count = c.shape[0]
+        batch_count = int(sample_count / self.batch_size)
+        for i in range(self.iterations):
+            idxs = np.random.permutation(sample_count)
+            for j in range(0, batch_count):
+                idx_k = idxs[j * self.batch_size: (j + 1) * self.batch_size]
+                x_k = x[:, idx_k]
+                c_k = c[:, idx_k]
 
-            b_k = theta_k[0: labels_count]
-            w_k = theta_k[labels_count: theta_size].reshape(labels_count, sample_size).T
+                b_k = self.theta_k[0: labels_count]
+                w_k = self.theta_k[labels_count: theta_size].reshape(labels_count, sample_size).T
 
-            g_k = gradient_loss_theta(x_k, c_k, w_k, b_k)
+                g_k = gradient_loss_theta(x_k, c_k, w_k, b_k)
 
-            a_k = learning_rate if i <= 100 else (10 * learning_rate) / np.sqrt(i)
+                a_k = self.learning_rate if i <= 100 else (10 * self.learning_rate) / np.sqrt(i)
 
-            theta_k = theta_k - a_k * g_k
+                self.theta_k = self.theta_k - a_k * g_k
 
-        if np.mod(i, freq) == 0:
-            b_k = theta_k[0: labels_count]
-            w_k = theta_k[labels_count: theta_size].reshape(labels_count, sample_size).T
+            if np.mod(i, self.freq) == 0:
+                train_loss, train_accuracy = self.evaluate(x, c, sample_size, labels_count, theta_size)
+                test_loss, test_accuracy = self.evaluate(test_x, test_y, sample_size, labels_count, theta_size)
 
-            loss_val = loss(testX, testY, w_k, b_k)
-            probabilities = softmax(testX, w_k, b_k)
+                print(i, train_loss, train_accuracy, test_loss, test_accuracy)
+                self.training_records.append((i, train_loss, train_accuracy, test_loss, test_accuracy))
 
-            test_count = probabilities.shape[1]
-            top_scores = [np.argmax(probabilities[:, i]) for i in range(test_count)]
-            actual_scores = [np.argmax(testY[:, i]) for i in range(test_count)]
-            accuracy = np.sum([1 if top_scores[i] == actual_scores[i] else 0
-                               for i in range(test_count)]) / test_count
+    def evaluate(self, x, c, sample_size, labels_count, theta_size):
+        b_k = self.theta_k[0: labels_count]
+        w_k = self.theta_k[labels_count: theta_size].reshape(labels_count, sample_size).T
 
-            print(i, accuracy, loss_val)
-            records.append((i, accuracy, loss_val))
-    return records
+        loss_val = loss(x, c, w_k, b_k)
+        loss_val = loss_val / x.shape[1]
+        probabilities = softmax(x, w_k, b_k)
+
+        test_count = probabilities.shape[1]
+        top_scores = [np.argmax(probabilities[:, i]) for i in range(test_count)]
+        actual_scores = [np.argmax(c[:, i]) for i in range(test_count)]
+        accuracy = np.sum([1 if top_scores[i] == actual_scores[i] else 0
+                           for i in range(test_count)]) / test_count
+        return loss_val, accuracy
 
 
 def jacMV_x(x, w1, w2, b, v):
