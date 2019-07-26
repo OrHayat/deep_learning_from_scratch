@@ -6,6 +6,7 @@ import numpy.linalg as la
 def plot_test_results(epsilons, df, dg, func, title, filename, show):
     plt.loglog(epsilons, df)
     plt.loglog(epsilons, dg)
+    plt.gca().invert_xaxis()
     plt.title(title)
     plt.xlabel('Epsilon')
     plt.ylabel('Value')
@@ -16,7 +17,8 @@ def plot_test_results(epsilons, df, dg, func, title, filename, show):
         plt.show()
 
 
-def plot_sgd_results(iterations, train_loss, train_accuracy, test_loss, test_accuracy, title, filename, show):
+def plot_sgd_results(model, title, filename, show):
+    iterations, train_loss, train_accuracy, test_loss, test_accuracy = zip(*model.training_records)
     fig, axs = plt.subplots(2)
     fig.suptitle(title)
 
@@ -29,6 +31,24 @@ def plot_sgd_results(iterations, train_loss, train_accuracy, test_loss, test_acc
     axs[1].plot(iterations, train_accuracy)
     axs[1].plot(iterations, test_accuracy)
     axs[1].legend(['Train', 'Test'])
+
+    plt.savefig(f'results/{filename}.png')
+    if show:
+        plt.show()
+
+
+def compare_sgd_result(models, title, filename, show):
+    fig, axs = plt.subplots(2)
+    fig.suptitle(title)
+
+    for m in models:
+        iterations, train_loss, train_accuracy, test_loss, test_accuracy = zip(*m.training_records)
+        axs[0].plot(iterations, test_loss)
+        axs[1].plot(iterations, test_accuracy)
+    axs[0].set(ylabel='Loss')
+    axs[1].set(ylabel='Accuracy')
+    axs[0].legend([m.name for m in models])
+    axs[1].legend([m.name for m in models])
 
     plt.savefig(f'results/{filename}.png')
     if show:

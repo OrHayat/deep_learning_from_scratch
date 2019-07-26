@@ -44,7 +44,7 @@ def softmax(x, w, b):
 
 def loss(x, c, w, b, epsilon=1e-8, regularization=0):
     probabilities = softmax(x, w, b)
-    return -np.sum(c * np.log(probabilities + epsilon)) + regularization * la.norm(w)
+    return -(np.sum(c * np.log(probabilities + epsilon)) + regularization * np.power(la.norm(w), 2)) / x.shape[1]
 
 
 def gradient_loss_x(x, c, w, b):
@@ -59,6 +59,7 @@ def gradient_loss_theta(x, c, w, b):
     gb = np.sum(diff, axis=0).reshape(diff.shape[1], 1)
     return np.concatenate((gb.flatten('F'), gw.flatten('F'))) \
         .reshape(gb.shape[0] * gb.shape[1] + gw.shape[0] * gw.shape[1], 1)
+
 
 class linear_model:
     def __init__(self, theta, batch_size, learning_rate, iterations, freq):
@@ -80,6 +81,7 @@ class linear_model:
             for j in range(0, batch_count):
                 idx_k = idxs[j * self.batch_size: (j + 1) * self.batch_size]
                 x_k = x[:, idx_k]
+
                 c_k = c[:, idx_k]
 
                 b_k = self.theta_k[0: labels_count]
@@ -103,7 +105,6 @@ class linear_model:
         w_k = self.theta_k[labels_count: theta_size].reshape(labels_count, sample_size).T
 
         loss_val = loss(x, c, w_k, b_k)
-        loss_val = loss_val / x.shape[1]
         probabilities = softmax(x, w_k, b_k)
 
         test_count = probabilities.shape[1]

@@ -2,7 +2,7 @@ import numpy as np
 import scipy.io as sio
 
 from test_utils import plot_sgd_results
-from utils import load_mnist
+from test_utils import compare_sgd_result
 from neural_network import rnn_model
 
 
@@ -30,9 +30,13 @@ def testGMMData():
 
     model = rnn_model(theta, layers_count, batch_size, learning_rate, iterations, freq)
     model.train(trainX, trainY, testX, testY)
-    iterations, train_loss, train_accuracy, test_loss, test_accuracy = zip(*model.training_records)
-    plot_sgd_results(iterations, train_loss, train_accuracy, test_loss, test_accuracy, 'SGD results (GMM Data)',
-                     'q5_gmm_data', False)
+
+    plot_sgd_results(model, 'SGD results (GMM Data)', f'q5_gmm_data', False)
+
+    model_momentum = rnn_model(theta, layers_count, batch_size, learning_rate, iterations, freq, gamma=0.5)
+    model_momentum.train(trainX, trainY, testX, testY)
+    compare_sgd_result([model, model_momentum], 'SGD with / without momentum (GMM Data)',
+                       'q5_gmm_data_momentum', False)
 
 
 def testPeaksData():
@@ -59,9 +63,14 @@ def testPeaksData():
 
     model = rnn_model(theta, layers_count, batch_size, learning_rate, iterations, freq)
     model.train(trainX, trainY, testX, testY)
-    iterations, train_loss, train_accuracy, test_loss, test_accuracy = zip(*model.training_records)
-    plot_sgd_results(iterations, train_loss, train_accuracy, test_loss, test_accuracy, 'SGD results (Peaks Data)',
-                     'q5_peaks_data', False)
+
+    plot_sgd_results(model, 'SGD results (Peaks Data)',
+                     f'q5_peaks_data', False)
+
+    model_momentum = rnn_model(theta, layers_count, batch_size, learning_rate, iterations, freq, gamma=0.5)
+    model_momentum.train(trainX, trainY, testX, testY)
+    compare_sgd_result([model, model_momentum], 'SGD with / without momentum (Peaks Data)',
+                       'q5_peaks_data_momentum', False)
 
 
 def testSwissRollData():
@@ -86,14 +95,18 @@ def testSwissRollData():
 
     theta = np.random.randn(layers_count * theta_layer_size + loss_layer_size, 1)
 
-    model = rnn_model(theta, layers_count, batch_size, learning_rate, iterations, freq, moment=0.7)
+    model = rnn_model(theta, layers_count, batch_size, learning_rate, iterations, freq)
     model.train(trainX, trainY, testX, testY)
-    iterations, train_loss, train_accuracy, test_loss, test_accuracy = zip(*model.training_records)
-    plot_sgd_results(iterations, train_loss, train_accuracy, test_loss, test_accuracy, 'SGD results (Swiss Roll Data)',
-                     'q5_swiss_roll_data', False)
+
+    plot_sgd_results(model, 'SGD results (Swiss Roll Data)',
+                     f'q5_swiss_roll_data', False)
+
+    model_momentum = rnn_model(theta, layers_count, batch_size, learning_rate, iterations, freq, gamma=0.5)
+    model_momentum.train(trainX, trainY, testX, testY)
+    compare_sgd_result([model, model_momentum], 'SGD with / without momentum (Swiss Roll Data)', 'q5_swiss_roll_data_momentum', False)
 
 
 if __name__ == "__main__":
-    # testGMMData()
-    # testPeaksData()
+    testGMMData()
+    testPeaksData()
     testSwissRollData()

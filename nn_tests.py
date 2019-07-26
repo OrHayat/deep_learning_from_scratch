@@ -31,7 +31,7 @@ def network_test():
 
     jacobian_test(lambda e: res_net(x + dx * e, w1, w2, b),
                   lambda e: jacMV_x(x, w1, w2, b, e * dx),
-                  'Jacobian Test: x', 'q4j_x')
+                  'Jacobian Test w.r.t x', 'q4j_x')
     transpose_test(lambda v: jacMV_x(x, w1, w2, b, v),
                    lambda v: jacTMV_x(x, w1, w2, b, v),
                    lambda: np.random.randn(dx.shape[0], dx.shape[1]),
@@ -39,7 +39,7 @@ def network_test():
 
     jacobian_test(lambda e: res_net(x, w1 + dw1 * e, w2 + dw2 * e, b + db * e),
                   lambda e: jacMV_theta(x, w1, w2, b, e * d_theta),
-                  'Jacobian Test: theta', 'q4j_theta')
+                  'Jacobian test w.r.t w', 'q4j_w')
     transpose_test(lambda v: jacMV_theta(x, w1, w2, b, v),
                    lambda v: jacTMV_theta(x, w1, w2, b, v),
                    lambda: np.random.randn(d_theta.shape[0], d_theta.shape[1]),
@@ -59,8 +59,8 @@ def layers_test():
     theta = np.random.randn(layers_count * theta_layer_size + loss_layer_size, 1)
     d_theta = np.random.randn(layers_count * theta_layer_size + loss_layer_size, 1)
 
-    probabilities, base_loss, xis = forward_pass(x, c, theta, layers_count)
-    grad = back_propagation(xis, c, theta, layers_count)
+    probabilities, base_loss, xs = forward_pass(x, c, theta, layers_count)
+    grad = back_propagation(xs, c, theta, layers_count)
 
     gradient_test(lambda e: forward_pass(x, c, theta + e * d_theta, layers_count)[1],
                   lambda e: e * np.matmul(d_theta.T, grad).item(),

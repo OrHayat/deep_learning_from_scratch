@@ -26,4 +26,4 @@ if __name__ == "__main__":
                   'Softmax gradient test w.r.t to x', 'q1_x')
     gradient_test(lambda e: loss(x, c, w + dw * e, b + db * e),
                   lambda e: e * np.matmul(dtheta.T, gradient_loss_theta(x, c, w, b)).item(),
-                  'Softmax gradient test w.r.t to theta', 'q1_theta')
+                  'Softmax gradient test w.r.t to w', 'q1_w')

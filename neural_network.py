@@ -29,11 +29,11 @@ def forward_pass(x, c, theta, layers_count, regularization=0):
     sample_size, sample_count = x.shape
     labels_count = c.shape[0]
 
-    xis = np.zeros((sample_size, sample_count, layers_count + 1))
-    xis[:, :, 0] = x
+    xs = np.zeros((sample_size, sample_count, layers_count + 1))
+    xs[:, :, 0] = x
     for k in range(1, layers_count + 1):
         w1, w2, b = get_net_weights(theta, k - 1, sample_size)
-        xis[:, :, k] = res_net(xis[:, :, k - 1], w1, w2, b)
+        xs[:, :, k] = res_net(xs[:, :, k - 1], w1, w2, b)
 
     theta_layer_size = sample_size + 2 * (sample_size ** 2)
     loss_weights_idx = layers_count * theta_layer_size
@@ -41,9 +41,9 @@ def forward_pass(x, c, theta, layers_count, regularization=0):
     w = theta[loss_weights_idx + labels_count: loss_weights_idx + labels_count + sample_size * labels_count] \
         .reshape(labels_count, sample_size).T
 
-    loss_val = loss(xis[:, :, layers_count], c, w, b, regularization)
-    probabilities = softmax(xis[:, :, layers_count], w, b)
-    return probabilities, loss_val, xis
+    loss_val = loss(xs[:, :, layers_count], c, w, b, regularization)
+    probabilities = softmax(xs[:, :, layers_count], w, b)
+    return probabilities, loss_val, xs
 
 
 def get_loss_weights(theta, sample_size, labels_count, layers_count):
@@ -57,8 +57,8 @@ def get_loss_weights(theta, sample_size, labels_count, layers_count):
     return w, b
 
 
-def back_propagation(xis, c, theta, layers_count):
-    sample_size = xis.shape[0]
+def back_propagation(xs, c, theta, layers_count):
+    sample_size = xs.shape[0]
     labels_count = c.shape[0]
 
     theta_layer_size = sample_size + 2 * (sample_size ** 2)
@@ -67,22 +67,23 @@ def back_propagation(xis, c, theta, layers_count):
     w_loss, b_loss = get_loss_weights(theta, sample_size, labels_count, layers_count)
 
     g_theta = np.zeros(theta.shape)
-    g_w_loss = gradient_loss_theta(xis[:, :, layers_count], c, w_loss, b_loss)
+    g_w_loss = gradient_loss_theta(xs[:, :, layers_count], c, w_loss, b_loss)
     g_theta[loss_weights_idx: weights_size] = g_w_loss
 
-    g_x = gradient_loss_x(xis[:, :, layers_count], c, w_loss, b_loss)
+    g_x = gradient_loss_x(xs[:, :, layers_count], c, w_loss, b_loss)
 
     for k in range(layers_count - 1, -1, -1):
         w1, w2, b = get_net_weights(theta, k, sample_size)
 
-        g_w_layer = jacTMV_theta(xis[:, :, k], w1, w2, b, g_x)
+        g_w_layer = jacTMV_theta(xs[:, :, k], w1, w2, b, g_x)
         g_theta[k * theta_layer_size: (k + 1) * theta_layer_size] = g_w_layer
-        g_x = jacTMV_x(xis[:, :, k], w1, w2, b, g_x)
+        g_x = jacTMV_x(xs[:, :, k], w1, w2, b, g_x)
     return g_theta
 
 
 class rnn_model:
-    def __init__(self, theta, layers_count, batch_size, learning_rate, iterations, freq, regularization=0, moment=0):
+    def __init__(self, theta, layers_count, batch_size, learning_rate, iterations, freq, regularization=0, gamma=0):
+        self.name = 'sgd' if gamma == 0 else 'sgd with momentum'
         self.theta = theta
         self.theta_k = self.theta
         self.layers_count = layers_count
@@ -91,7 +92,7 @@ class rnn_model:
         self.iterations = iterations
         self.freq = freq
         self.regularization = regularization
-        self.moment = moment
+        self.moment = gamma
         self.training_records = []
 
     def train(self, x, c, test_x, test_c):
@@ -105,18 +106,17 @@ class rnn_model:
                 x_k = x[:, idx_k]
                 c_k = c[:, idx_k]
 
-                _, _, xis = forward_pass(x_k, c_k, self.theta_k, self.layers_count, self.regularization)
-                g_k = back_propagation(xis, c_k, self.theta_k, self.layers_count)
+                _, _, xs = forward_pass(x_k, c_k, self.theta_k, self.layers_count, self.regularization)
+                g_k = back_propagation(xs, c_k, self.theta_k, self.layers_count)
 
                 a_k = self.learning_rate if i <= 100 else (5 * self.learning_rate) / np.sqrt(i)
-                b_k = self.moment if i <= 100 else (10 * self.moment) / np.sqrt(i)
+                b_k = self.moment if i <= 100 else (5 * self.moment) / np.sqrt(i)
 
                 m_project = np.matmul(g_k, np.matmul(m_k.T, g_k)) / (la.norm(g_k)*la.norm(g_k))
                 m_k = m_k - m_project
 
                 m_k = a_k * g_k + b_k * m_k
                 self.theta_k = self.theta_k - m_k
-                #self.theta_k = self.theta_k - a_k * g_k
 
             if np.mod(i, self.freq) == 0:
                 train_loss, train_accuracy = self.evaluate(x, c)
@@ -127,7 +127,6 @@ class rnn_model:
 
     def evaluate(self, x, c):
         probabilities, loss_val, _ = forward_pass(x, c, self.theta_k, self.layers_count)
-        loss_val = loss_val / x.shape[1]
 
         test_count = probabilities.shape[1]
         top_scores = [np.argmax(probabilities[:, i]) for i in range(test_count)]
