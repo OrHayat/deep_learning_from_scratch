@@ -30,6 +30,10 @@ def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
 
+def relu(x):
+    return np.maximum(x,0)
+
+
 def softmax(x, w, b):
     sample_count = x.shape[1]
     classes_count = w.shape[1]
@@ -57,8 +61,8 @@ def gradient_loss_theta(x, c, w, b):
     diff = probabilities.T - c.T
     gw = np.matmul(x, diff)
     gb = np.sum(diff, axis=0).reshape(diff.shape[1], 1)
-    return np.concatenate((gb.flatten('F'), gw.flatten('F'))) \
-        .reshape(gb.shape[0] * gb.shape[1] + gw.shape[0] * gw.shape[1], 1)
+    return np.concatenate((gb.flatten('F'), gw.flatten('F'))).reshape((-1, 1))
+    # \.reshape(gb.shape[0] * gb.shape[1] + gw.shape[0] * gw.shape[1], 1)
 
 
 class linear_model:
@@ -81,22 +85,15 @@ class linear_model:
             for j in range(0, batch_count):
                 idx_k = idxs[j * self.batch_size: (j + 1) * self.batch_size]
                 x_k = x[:, idx_k]
-
                 c_k = c[:, idx_k]
-
                 b_k = self.theta_k[0: labels_count]
                 w_k = self.theta_k[labels_count: theta_size].reshape(labels_count, sample_size).T
-
                 g_k = gradient_loss_theta(x_k, c_k, w_k, b_k)
-
                 a_k = self.learning_rate if i <= 100 else (10 * self.learning_rate) / np.sqrt(i)
-
                 self.theta_k = self.theta_k - a_k * g_k
-
             if np.mod(i, self.freq) == 0:
                 train_loss, train_accuracy = self.evaluate(x, c, sample_size, labels_count, theta_size)
                 test_loss, test_accuracy = self.evaluate(test_x, test_y, sample_size, labels_count, theta_size)
-
                 print(i, train_loss, train_accuracy, test_loss, test_accuracy)
                 self.training_records.append((i, train_loss, train_accuracy, test_loss, test_accuracy))
 
@@ -115,62 +112,78 @@ class linear_model:
         return loss_val, accuracy
 
 
-def jacMV_x(x, w1, w2, b, v):
+def jacMV_x(x, w1, b, v, type='sigmoid'):
     n = w1.shape[0]
-    inner = sigmoid(np.matmul(w1, x) + b)
-    derivative = np.multiply(inner, (1 - inner))
-
-    jac = np.eye(n) + np.matmul(w2, np.matmul(np.diagflat(derivative), w1))
+    if type == 'sigmoid':
+        inner = sigmoid(np.matmul(w1, x) + b)
+        derivative = np.multiply(inner, (1 - inner))
+    if type == 'relu':
+        inner = relu(np.matmul(w1, x) + b)
+        inner[inner > 0] = 1
+        derivative = inner
+    jac = np.matmul(np.diagflat(derivative), w1)
     return np.matmul(jac, v)
 
 
-def jacTMV_x(x, w1, w2, b, v):
+def jacTMV_x(x, w1, b, v, type='sigmoid'):
     sample_count = x.shape[1]
+    if type == 'sigmoid':
+        inner = sigmoid(np.matmul(w1, x) + np.tile(b, (1, sample_count)))
+        derivative = np.multiply(inner, (1 - inner))
+    if type == 'relu':
+        inner = relu(np.matmul(w1, x) + np.tile(b, (1, sample_count)))
+        inner[inner > 0] = 1
+        derivative = inner
+    return np.matmul(w1.T, np.multiply(derivative, v))
 
-    inner = sigmoid(np.matmul(w1, x) + np.tile(b, (1, sample_count)))
-    derivative = np.multiply(inner, (1 - inner))
 
-    return v + np.matmul(w1.T, np.multiply(derivative, np.matmul(w2.T, v)))
-
-
-def jacMV_theta(x, w1, w2, b, v):
+def jacMV_theta(x, w1, b, v, type='sigmoid'):
     n = w1.shape[0]
     m = x.shape[0]
 
     db = v[0: n]
     dw1 = v[n: n + n ** 2]
-    dw2 = v[n + n ** 2: n + 2 * n ** 2]
-
-    inner = sigmoid(np.matmul(w1, x) + b)
-    derivative = np.multiply(inner, 1 - inner)
+    if type == 'sigmoid':
+        inner = sigmoid(np.matmul(w1, x) + b)
+        derivative = np.multiply(inner, 1 - inner)
+    if type == 'relu':
+        inner = relu(np.matmul(w1, x) + b)
+        inner[inner > 0] = 1
+        derivative = inner
     diagonal = np.diagflat(derivative)
-    w2diagonal = np.matmul(w2, diagonal)
 
-    jbv = np.matmul(w2diagonal, db)
+    jbv = np.matmul(diagonal, db)
 
-    jw1v = np.matmul(w2diagonal, np.matmul(np.kron(x.T, np.eye(m)), dw1))
+    jw1v = np.matmul(diagonal, np.matmul(np.kron(x.T, np.eye(m)), dw1))
 
-    jw2v = np.matmul(np.kron(inner.T, np.eye(m)), dw2)
-
-    return jbv + jw1v + jw2v
+    return jbv + jw1v
 
 
-def jacTMV_theta(x, w1, w2, b, v):
+def jacTMV_theta(x, w1, b, v, type='sigmoid'):
     n, m = x.shape
-
-    inner = sigmoid(np.matmul(w1, x) + np.tile(b, (1, m)))
-    derivative = np.multiply(inner, 1 - inner)
-
+    if type == 'sigmoid':
+        inner = sigmoid(np.matmul(w1, x) + np.tile(b, (1, m)))
+        derivative = np.multiply(inner, 1 - inner)
+    if type == 'relu':
+        inner = relu(np.matmul(w1, x) + np.tile(b, (1, m)))
+        inner[inner > 0] = 1
+        derivative = inner
     x_rep = np.tile(x.T, (n, 1)).reshape(m, n ** 2, order='F')
-    jbTv = np.multiply(derivative, np.matmul(w2.T, v))
-    jbTv_avg = np.average(jbTv, 1).reshape(jbTv.shape[0], 1)
+    jbTv = derivative * v  # np.multiply(derivative, np.matmul(w2.T, v))
+    jbTv_avg = np.average(jbTv, 1).reshape(-1, 1)
     jbTv_rep = np.tile(jbTv, (n, 1))
     jw1Tv = np.multiply(x_rep.T, jbTv_rep)
     jw1Tv_avg = np.average(jw1Tv, 1).reshape(jw1Tv.shape[0], 1)
-    jw2Tv = np.matmul(v, inner.T)
-    jw2Tv_avg = (1 / m) * jw2Tv.flatten('F').reshape(jw2Tv.shape[0] * jw2Tv.shape[1], 1)
-
-    return np.concatenate((jbTv_avg.flatten('F'), jw1Tv_avg.flatten('F'), jw2Tv_avg.flatten('F'))) \
-        .reshape(jbTv_avg.shape[0] * jbTv_avg.shape[1] +
-                 jw1Tv_avg.shape[0] * jw1Tv_avg.shape[1] +
-                 jw2Tv_avg.shape[0] * jw2Tv_avg.shape[1], 1)
+    return np.concatenate((jbTv_avg.flatten('F'), jw1Tv_avg.flatten('F'),)).reshape((-1, 1))
+    # .reshape(jbTv_avg.shape[0] * jbTv_avg.shape[1] +
+    #          jw1Tv_avg.shape[0] * jw1Tv_avg.shape[1] +
+    #          jw2Tv_avg.shape[0] * jw2Tv_avg.shape[1], 1)
+# def jacTMV_theta(x, w1, b, v):
+#     n, m = x.shape
+#     inner = sigmoid(np.matmul(w1, x) + np.tile(b, (1, m)))
+#     derivative = np.multiply(inner, 1 - inner)
+#     jwTv=np.matmul(derivative*v,x.T)
+#     inner=sigmoid(np.matmul(w1,x)+b)
+#     derivative = np.multiply(inner, 1 - inner)
+#     jbTv =derivative*v
+#     return np.concatenate((jbTv.flatten('F'),jwTv.flatten('F'))).reshape((-1,1))

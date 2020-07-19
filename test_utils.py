@@ -76,11 +76,17 @@ def jacobian_test(f, j, title, filename, iterations=15):
     plot_test_results(epsilons, j1, j2, r'JacMV\left(x, \epsilon d\right)', title, filename, True)
 
 
-def transpose_test(f1, f2, u_gen, v_gen, iterations=15):
+def transpose_test(f1, f2, u_gen, v_gen, iterations=15, file_name='transpose_test', title="", show=False):
+    print("transpose test")
     u = [u_gen() for _ in range(iterations)]
     v = [v_gen() for _ in range(iterations)]
-
     res = [np.abs(np.matmul(vi.T, f1(ui)) - np.matmul(ui.T, f2(vi))).item()
            for ui, vi in zip(u, v)]
     for r in res:
         print(r)
+    fig = plt.figure()
+    plt.plot(np.arange(len(res)), res)
+    plt.title(title)
+    plt.savefig(f'results/{file_name}.png')
+    if show:
+        plt.show()

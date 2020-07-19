@@ -5,83 +5,72 @@ from utils import softmax
 from utils import gradient_loss_theta
 from utils import gradient_loss_x
 from utils import sigmoid
+from utils import relu
 from utils import jacTMV_x
 from utils import jacTMV_theta
 
 
-def res_net(x, w1, w2, b):
+def net(x, w1, b):
     sample_count = x.shape[1]
     inner = np.matmul(w1, x) + np.tile(b, (1, sample_count))
-    return x + np.matmul(w2, sigmoid(inner))
+    return relu(inner)
 
 
 def get_net_weights(theta, k, sample_size):
-    layer_size = sample_size + 2 * (sample_size ** 2)
+    layer_size = sample_size + 1 * (sample_size ** 2)
     layer_weights = theta[k * layer_size: (k + 1) * layer_size]
     b = layer_weights[0: sample_size]
     w1 = layer_weights[sample_size: sample_size + sample_size ** 2].reshape(sample_size, sample_size).T
-    w2 = layer_weights[sample_size + sample_size ** 2: layer_size].reshape(sample_size, sample_size).T
-
-    return w1, w2, b
+    return w1, b
 
 
 def forward_pass(x, c, theta, layers_count, regularization=0):
     sample_size, sample_count = x.shape
     labels_count = c.shape[0]
-
     xs = np.zeros((sample_size, sample_count, layers_count + 1))
     xs[:, :, 0] = x
     for k in range(1, layers_count + 1):
-        w1, w2, b = get_net_weights(theta, k - 1, sample_size)
-        xs[:, :, k] = res_net(xs[:, :, k - 1], w1, w2, b)
-
-    theta_layer_size = sample_size + 2 * (sample_size ** 2)
+        w1, b = get_net_weights(theta, k - 1, sample_size)
+        xs[:, :, k] = net(xs[:, :, k - 1], w1, b)
+    theta_layer_size = sample_size + 1 * (sample_size ** 2)
     loss_weights_idx = layers_count * theta_layer_size
     b = theta[loss_weights_idx: loss_weights_idx + labels_count]
-    w = theta[loss_weights_idx + labels_count: loss_weights_idx + labels_count + sample_size * labels_count] \
-        .reshape(labels_count, sample_size).T
-
+    w = theta[loss_weights_idx + labels_count: loss_weights_idx + labels_count + sample_size * labels_count].reshape(
+        labels_count, sample_size).T
     loss_val = loss(xs[:, :, layers_count], c, w, b, regularization)
     probabilities = softmax(xs[:, :, layers_count], w, b)
     return probabilities, loss_val, xs
 
 
 def get_loss_weights(theta, sample_size, labels_count, layers_count):
-    theta_layer_size = sample_size + 2 * (sample_size ** 2)
+    theta_layer_size = sample_size + 1 * (sample_size ** 2)
     loss_weights_idx = layers_count * theta_layer_size
-
     b = theta[loss_weights_idx: loss_weights_idx + labels_count]
     w = theta[loss_weights_idx + labels_count: loss_weights_idx + (sample_size + 1) * labels_count]
     w = w.reshape((labels_count, sample_size)).T
-
     return w, b
 
 
 def back_propagation(xs, c, theta, layers_count):
     sample_size = xs.shape[0]
     labels_count = c.shape[0]
-
-    theta_layer_size = sample_size + 2 * (sample_size ** 2)
+    theta_layer_size = sample_size + (sample_size ** 2)
     loss_weights_idx = layers_count * theta_layer_size
     weights_size = loss_weights_idx + labels_count + sample_size * labels_count
     w_loss, b_loss = get_loss_weights(theta, sample_size, labels_count, layers_count)
-
     g_theta = np.zeros(theta.shape)
     g_w_loss = gradient_loss_theta(xs[:, :, layers_count], c, w_loss, b_loss)
     g_theta[loss_weights_idx: weights_size] = g_w_loss
-
     g_x = gradient_loss_x(xs[:, :, layers_count], c, w_loss, b_loss)
-
     for k in range(layers_count - 1, -1, -1):
-        w1, w2, b = get_net_weights(theta, k, sample_size)
-
-        g_w_layer = jacTMV_theta(xs[:, :, k], w1, w2, b, g_x)
+        w1, b = get_net_weights(theta, k, sample_size)
+        g_w_layer = jacTMV_theta(xs[:, :, k], w1, b, g_x, type='relu')
         g_theta[k * theta_layer_size: (k + 1) * theta_layer_size] = g_w_layer
-        g_x = jacTMV_x(xs[:, :, k], w1, w2, b, g_x)
+        g_x = jacTMV_x(xs[:, :, k], w1, b, g_x, type='relu')
     return g_theta
 
 
-class rnn_model:
+class nn_model:
     def __init__(self, theta, layers_count, batch_size, learning_rate, iterations, freq, regularization=0, gamma=0):
         self.name = 'sgd' if gamma == 0 else 'sgd with momentum'
         self.theta = theta
@@ -105,16 +94,12 @@ class rnn_model:
                 idx_k = idxs[j * self.batch_size: (j + 1) * self.batch_size]
                 x_k = x[:, idx_k]
                 c_k = c[:, idx_k]
-
                 _, _, xs = forward_pass(x_k, c_k, self.theta_k, self.layers_count, self.regularization)
                 g_k = back_propagation(xs, c_k, self.theta_k, self.layers_count)
-
                 a_k = self.learning_rate if i <= 100 else (5 * self.learning_rate) / np.sqrt(i)
                 b_k = self.moment if i <= 100 else (5 * self.moment) / np.sqrt(i)
-
-                m_project = np.matmul(g_k, np.matmul(m_k.T, g_k)) / (la.norm(g_k)*la.norm(g_k))
+                m_project = np.matmul(g_k, np.matmul(m_k.T, g_k)) / (la.norm(g_k) * la.norm(g_k))
                 m_k = m_k - m_project
-
                 m_k = a_k * g_k + b_k * m_k
                 self.theta_k = self.theta_k - m_k
 

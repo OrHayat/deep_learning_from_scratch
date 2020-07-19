@@ -1,0 +1,6 @@
+highest testing accuracy for gmm happent at num_epoch=200,learning_rate=0.01,batch_size=50 layer count=3
+results were training loss=0.13791563723091638,training acc=0.9576,testing loss=0.12495880223366855,testing acc=0.95952
+highest testing accuracy for peaks happent at num_epoch=100,learning_rate=0.01,batch_size=100 layer count=5
+results were training loss=0.5640767252844164,training acc=0.79256,testing loss=0.5786148300233123,testing acc=0.784
+highest testing accuracy for swiss happent at num_epoch=100,learning_rate=0.01,batch_size=50 layer count=3
+results were training loss=0.6225642433387119,training acc=0.64772,testing loss=0.6206106072038186,testing acc=0.6544
